@@ -126,4 +126,4 @@ class HistoricalManipulationStock(Base):
     max_rise_rate = Column(Float)
     manipulation_type = Column(String)
     description = Column(Text)
-    created_at = Column(DateTime, server_default=func.now()) 
+    created_at = Column(DateTime, server_default=func.now())

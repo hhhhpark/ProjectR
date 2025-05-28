@@ -13,10 +13,13 @@ import subprocess
 import yfinance as yf
 from pykrx import stock
 import re
-from database import get_db, engine
+from database import get_db, engine, Base
 from sqlalchemy import text
 
 app = FastAPI(title="K-Stock Pattern API", description="주가 패턴 분석 API")
+
+# PostgreSQL에 테이블 생성
+Base.metadata.create_all(bind=engine)
 
 # CORS 설정
 app.add_middleware(
