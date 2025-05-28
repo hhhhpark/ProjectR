@@ -567,5 +567,15 @@ async def get_stock_name(stock_code: str, db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import os
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))  # 환경변수 PORT 없으면 8000번 사용
-    uvicorn.run("main:app", host="0.0.0.0", port=port) 
+    
+    # Render에서 제공하는 PORT 환경변수 사용, 없으면 8000 사용
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Starting server on port {port}")
+    
+    # 모든 인터페이스에서 접속 허용
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=port,
+        reload=False  # 프로덕션에서는 reload=False 권장
+    ) 
