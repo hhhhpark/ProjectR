@@ -565,5 +565,7 @@ async def get_stock_name(stock_code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    port = int(os.environ.get("PORT", 8000))  # 환경변수 PORT 없으면 8000번 사용
+    uvicorn.run("main:app", host="0.0.0.0", port=port) 
