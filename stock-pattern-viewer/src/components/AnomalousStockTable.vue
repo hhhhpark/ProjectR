@@ -5,9 +5,9 @@
         <tr>
           <th>종목명</th>
           <th>이상거래 유형</th>
-          <th class="clickable">급등빈발 일수</th>
-          <th class="clickable">극심한급등 최대등락률</th>
-          <th class="clickable">거래량급증빈발 일수</th>
+          <th class="clickable">급등빈발 (건수/기간)</th>
+          <th class="clickable">극심한급등 (최대등락률)</th>
+          <th class="clickable">거래량급증 (건수/기간)</th>
           <th>위험도점수</th>
         </tr>
       </thead>
@@ -15,9 +15,15 @@
         <tr v-for="row in anomalousStocks" :key="row.stock_code">
           <td>{{ row.stock_name }}</td>
           <td>{{ row.manipulation_type }}</td>
-          <td class="clickable" @click="showChart('급등빈발', row)">{{ row.급등빈발_일수 }}</td>
-          <td class="clickable" @click="showChart('극심한급등', row)">{{ row.극심한급등_최대등락률 }}</td>
-          <td class="clickable" @click="showChart('거래량급증', row)">{{ row.거래량급증빈발_일수 }}</td>
+          <td class="clickable" @click="showChart('급등빈발', row)">
+            {{ row.급등빈발_일수 }}건 / {{ row.급등빈발_기간 || '최근 1년' }}
+          </td>
+          <td class="clickable" @click="showChart('극심한급등', row)">
+            {{ row.극심한급등_최대등락률 ? row.극심한급등_최대등락률.toFixed(2) + '%' : 'N/A' }}
+          </td>
+          <td class="clickable" @click="showChart('거래량급증', row)">
+            {{ row.거래량급증빈발_일수 }}건 / {{ row.거래량급증빈발_기간 || '최근 1년' }}
+          </td>
           <td>{{ row.위험도점수 }}</td>
         </tr>
       </tbody>
@@ -96,10 +102,29 @@ export default {
         const prices = sortedData.map(item => parseFloat(item.close_price))
         const volumes = sortedData.map(item => parseFloat(item.volume))
 
+        // 급등빈발의 경우 API에서 급등일 정보 가져오기
+        let surgeDates = []
+        if (type === '급등빈발') {
+          try {
+            console.log('Fetching surge dates for:', stock.stock_code)
+            const surgeResponse = await fetch(`http://localhost:8000/api/stock-surge-dates/${stock.stock_code}`)
+            const surgeData = await surgeResponse.json()
+            console.log('Surge data:', surgeData)
+            
+            if (surgeData.surge_dates) {
+              surgeDates = surgeData.surge_dates.map(item => item.date)
+              console.log('Surge dates found:', surgeDates)
+            }
+          } catch (error) {
+            console.error('Error fetching surge dates:', error)
+          }
+        }
+
         // 패턴 발생 날짜 설정
         switch (type) {
           case '급등빈발':
-            patternDates.value = stock.급등빈발_기간 ? stock.급등빈발_기간.split(',').map(date => date.trim()) : []
+            // API에서 가져온 급등일 사용
+            patternDates.value = surgeDates
             break
           case '극심한급등':
             patternDates.value = stock.극심한급등_기간 ? stock.극심한급등_기간.split(',').map(date => date.trim()) : []
@@ -125,14 +150,22 @@ export default {
           const isPatternDate = patternDates.value.some(patternDate => {
             return dateStr === patternDate
           })
-          return isPatternDate ? 6 : 0
+          return isPatternDate ? 8 : 0  // 급등일은 더 크게 표시
+        })
+
+        const pointBorderWidth = dates.map(date => {
+          const dateStr = date.toISOString().split('T')[0]
+          const isPatternDate = patternDates.value.some(patternDate => {
+            return dateStr === patternDate
+          })
+          return isPatternDate ? 2 : 0
         })
 
         console.log('Points:', {
           dates: dates.map(d => d.toISOString().split('T')[0]),
           patternDates: patternDates.value,
           pointBackgroundColors: pointBackgroundColors.filter(c => c === 'red').length,
-          pointRadius: pointRadius.filter(r => r === 6).length
+          pointRadius: pointRadius.filter(r => r === 8).length
         })
 
         // 기존 차트 제거
@@ -155,9 +188,10 @@ export default {
                 tension: 0.1,
                 yAxisID: 'y',
                 pointBackgroundColor: pointBackgroundColors,
-                pointBorderColor: pointBackgroundColors,
+                pointBorderColor: 'red',
+                pointBorderWidth: pointBorderWidth,
                 pointRadius: pointRadius,
-                pointHoverRadius: 8,
+                pointHoverRadius: 10,
                 fill: true
               },
               {
@@ -180,7 +214,7 @@ export default {
             plugins: {
               title: {
                 display: true,
-                text: `${stock.stock_name} 주가 및 거래량 추이`,
+                text: `${stock.stock_name} 주가 및 거래량 추이${type === '급등빈발' ? ' (빨간 원: 급등일)' : ''}`,
                 font: {
                   size: 16,
                   weight: 'bold'
@@ -206,8 +240,14 @@ export default {
                   label: function(context) {
                     const label = context.dataset.label || '';
                     const value = context.parsed.y;
+                    const dateStr = context.parsed.x;
+                    
                     if (label === '종가') {
-                      return `${label}: ${value.toLocaleString()}원`;
+                      // 급등일인지 확인
+                      const date = new Date(dateStr).toISOString().split('T')[0]
+                      const isSurgeDate = patternDates.value.includes(date)
+                      const surgeInfo = isSurgeDate ? ' 🔴 급등일' : ''
+                      return `${label}: ${value.toLocaleString()}원${surgeInfo}`;
                     } else {
                       return `${label}: ${value.toLocaleString()}주`;
                     }

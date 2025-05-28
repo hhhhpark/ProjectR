@@ -485,37 +485,89 @@ const closeStockDetailModal = () => {
 }
 
 const loadStockDetailData = async () => {
-  if (!selectedStock.value?.stock_code) return
+  if (!selectedStock.value?.stock_code) {
+    console.error('종목코드가 없습니다:', selectedStock.value)
+    return
+  }
   
+  console.log('종목 상세 데이터 로딩 시작:', selectedStock.value.stock_code, '기간:', selectedPeriod.value)
   isLoadingStockDetail.value = true
   stockDetailData.value = []
   
   try {
-    const response = await fetch(`http://localhost:8000/api/collect-stock-data/${selectedStock.value.stock_code}?limit=${selectedPeriod.value}`)
+    const url = `http://localhost:8000/api/collect-stock-data/${selectedStock.value.stock_code}?limit=${selectedPeriod.value}`
+    console.log('API 호출 URL:', url)
+    
+    const response = await fetch(url)
+    console.log('API 응답 상태:', response.status)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
     const data = await response.json()
-    stockDetailData.value = data.data || []
+    console.log('API 응답 데이터:', data)
+    
+    // 새로운 API 응답 형식 처리
+    if (data.error) {
+      throw new Error(data.error)
+    }
+    
+    if (data.message && (!data.data || data.data.length === 0)) {
+      console.warn('데이터 없음:', data.message)
+      alert(data.message)
+      return
+    }
+    
+    // API 응답 구조 변경에 따른 처리
+    let allData = data.data || data || []
+    stockDetailData.value = allData
+    console.log('설정된 stockDetailData 길이:', stockDetailData.value.length)
     
     if (stockDetailData.value.length > 0) {
+      console.log('데이터 샘플:', stockDetailData.value.slice(0, 3))
+      
+      // DOM이 업데이트될 때까지 기다림
       await nextTick()
+      console.log('nextTick 완료, 차트 생성 시작')
+      
+      // 추가 지연을 통해 DOM이 완전히 렌더링되도록 함
       setTimeout(() => {
+        console.log('차트 생성 함수 호출')
         createCharts()
-      }, 300)
+      }, 500)
+    } else {
+      console.warn('데이터가 없습니다')
     }
   } catch (error) {
     console.error('종목 상세 데이터 로딩 실패:', error)
+    alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message)
   } finally {
     isLoadingStockDetail.value = false
+    console.log('로딩 상태 해제')
   }
 }
 
 // 차트 생성 및 제거 함수들
 const createCharts = () => {
   try {
-    if (stockDetailData.value.length === 0) return
+    console.log('차트 생성 시작, 데이터 길이:', stockDetailData.value.length)
+    if (stockDetailData.value.length === 0) {
+      console.log('데이터가 없어서 차트 생성 중단')
+      return
+    }
     
     destroyCharts()
-    createCandlestickChart()
-    createVolumeChart()
+    
+    // DOM 요소가 준비될 때까지 기다림
+    nextTick(() => {
+      setTimeout(() => {
+        console.log('캔들스틱 차트 생성 시도')
+        createCandlestickChart()
+        console.log('거래량 차트 생성 시도')
+        createVolumeChart()
+      }, 100)
+    })
   } catch (error) {
     console.error('차트 생성 실패:', error)
   }
@@ -526,11 +578,13 @@ const destroyCharts = () => {
     if (candlestickChart) {
       candlestickChart.destroy()
       candlestickChart = null
+      console.log('캔들스틱 차트 제거됨')
     }
     
     if (volumeChart) {
       volumeChart.destroy()
       volumeChart = null
+      console.log('거래량 차트 제거됨')
     }
   } catch (error) {
     console.error('차트 제거 실패:', error)
@@ -538,78 +592,151 @@ const destroyCharts = () => {
 }
 
 const createCandlestickChart = () => {
-  if (!candlestickCanvas.value || stockDetailData.value.length === 0) return
+  console.log('캔들스틱 차트 생성 함수 시작')
+  console.log('Canvas 요소:', candlestickCanvas.value)
+  console.log('데이터 길이:', stockDetailData.value.length)
+  
+  if (!candlestickCanvas.value) {
+    console.error('캔들스틱 캔버스 요소를 찾을 수 없음')
+    return
+  }
+  
+  if (stockDetailData.value.length === 0) {
+    console.error('차트 데이터가 없음')
+    return
+  }
   
   const ctx = candlestickCanvas.value.getContext('2d')
-  if (!ctx) return
+  if (!ctx) {
+    console.error('캔버스 컨텍스트를 가져올 수 없음')
+    return
+  }
   
-  const chartData = stockDetailData.value.slice(-90).reverse().map(row => ({
-    x: new Date(row.date).getTime(),
-    o: parseFloat(row.open_price) || 0,
-    h: parseFloat(row.high_price) || 0,
-    l: parseFloat(row.low_price) || 0,
-    c: parseFloat(row.close_price) || 0
-  }))
+  // 데이터 준비
+  const chartData = stockDetailData.value.slice(-90).reverse().map((row, index) => {
+    const dataPoint = {
+      x: new Date(row.date).getTime(),
+      o: parseFloat(row.open_price) || 0,
+      h: parseFloat(row.high_price) || 0,
+      l: parseFloat(row.low_price) || 0,
+      c: parseFloat(row.close_price) || 0
+    }
+    if (index < 5) console.log('차트 데이터 샘플:', dataPoint)
+    return dataPoint
+  })
   
-  candlestickChart = new Chart(ctx, {
-    type: 'candlestick',
-    data: {
-      datasets: [{
-        label: `${selectedStock.value?.stock_name || ''} 주가`,
-        data: chartData,
-        borderColor: '#26a69a',
-        backgroundColor: 'rgba(38, 166, 154, 0.8)'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: 'day',
-            displayFormats: { day: 'MM/dd' }
+  console.log('차트 데이터 준비 완료, 길이:', chartData.length)
+  
+  try {
+    candlestickChart = new Chart(ctx, {
+      type: 'candlestick',
+      data: {
+        datasets: [{
+          label: `${selectedStock.value?.stock_name || ''} 주가`,
+          data: chartData,
+          borderColor: '#26a69a',
+          backgroundColor: 'rgba(38, 166, 154, 0.8)'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true
           }
         },
-        y: {
-          title: { display: true, text: '주가 (원)' }
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'day',
+              displayFormats: { day: 'MM/dd' }
+            },
+            title: {
+              display: true,
+              text: '날짜'
+            }
+          },
+          y: {
+            title: { 
+              display: true, 
+              text: '주가 (원)' 
+            }
+          }
         }
       }
-    }
-  })
+    })
+    console.log('캔들스틱 차트 생성 완료')
+  } catch (error) {
+    console.error('캔들스틱 차트 생성 중 오류:', error)
+  }
 }
 
 const createVolumeChart = () => {
-  if (!volumeCanvas.value || stockDetailData.value.length === 0) return
+  console.log('거래량 차트 생성 함수 시작')
+  console.log('Canvas 요소:', volumeCanvas.value)
+  
+  if (!volumeCanvas.value) {
+    console.error('거래량 캔버스 요소를 찾을 수 없음')
+    return
+  }
+  
+  if (stockDetailData.value.length === 0) {
+    console.error('차트 데이터가 없음')
+    return
+  }
   
   const ctx = volumeCanvas.value.getContext('2d')
-  if (!ctx) return
+  if (!ctx) {
+    console.error('캔버스 컨텍스트를 가져올 수 없음')
+    return
+  }
   
   const chartData = stockDetailData.value.slice(-90).reverse()
+  console.log('거래량 차트 데이터 준비 완료, 길이:', chartData.length)
   
-  volumeChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: chartData.map(row => formatDate(row.date)),
-      datasets: [{
-        label: '거래량',
-        data: chartData.map(row => parseFloat(row.volume) || 0),
-        backgroundColor: 'rgba(34, 197, 94, 0.6)',
-        borderColor: '#22c55e',
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: {
-          title: { display: true, text: '거래량' }
+  try {
+    volumeChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: chartData.map(row => formatDate(row.date)),
+        datasets: [{
+          label: '거래량',
+          data: chartData.map(row => parseFloat(row.volume) || 0),
+          backgroundColor: 'rgba(34, 197, 94, 0.6)',
+          borderColor: '#22c55e',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: '날짜'
+            }
+          },
+          y: {
+            title: { 
+              display: true, 
+              text: '거래량' 
+            }
+          }
         }
       }
-    }
-  })
+    })
+    console.log('거래량 차트 생성 완료')
+  } catch (error) {
+    console.error('거래량 차트 생성 중 오류:', error)
+  }
 }
 
 // 종목 추가 모달 관련 함수들
@@ -775,11 +902,11 @@ const closeSuspectDetailModal = () => {
 
 const loadSuspectDetailData = async () => {
   if (!selectedSuspectStock.value?.stock_code) {
-    console.log('종목코드 없음:', selectedSuspectStock.value)
+    console.error('종목코드 없음:', selectedSuspectStock.value)
     return
   }
   
-  console.log('데이터 로딩 시작:', selectedSuspectStock.value.stock_code)
+  console.log('의심 종목 데이터 로딩 시작:', selectedSuspectStock.value.stock_code)
   isLoadingSuspectDetail.value = true
   suspectDetailData.value = []
   
@@ -832,7 +959,19 @@ const loadSuspectDetailData = async () => {
     const data = await response.json()
     console.log('받은 데이터:', data)
     
-    let allData = data.data || []
+    // 새로운 API 응답 형식 처리
+    if (data.error) {
+      throw new Error(data.error)
+    }
+    
+    if (data.message && (!data.data || data.data.length === 0)) {
+      console.warn('데이터 없음:', data.message)
+      alert(data.message)
+      return
+    }
+    
+    // API 응답 구조 변경에 따른 처리
+    let allData = data.data || data || []
     
     // 날짜 범위로 필터링
     if (startDate && endDate) {
@@ -856,6 +995,7 @@ const loadSuspectDetailData = async () => {
     }
   } catch (error) {
     console.error('의심 종목 상세 데이터 로딩 실패:', error)
+    alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message)
   } finally {
     isLoadingSuspectDetail.value = false
   }
@@ -1516,6 +1656,7 @@ onMounted(async () => {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 1.5rem;
+  min-height: 400px;
 }
 
 .chart-container h3 {
@@ -1527,7 +1668,15 @@ onMounted(async () => {
 
 .chart-wrapper {
   height: 300px;
+  width: 100%;
   position: relative;
+  display: block;
+}
+
+.chart-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
 
 .table-section {
