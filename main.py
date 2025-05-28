@@ -572,10 +572,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"Starting server on port {port}")
     
-    # 모든 인터페이스에서 접속 허용
-    uvicorn.run(
-        "main:app", 
-        host="0.0.0.0", 
-        port=port,
-        reload=False  # 프로덕션에서는 reload=False 권장
-    ) 
+    # uvicorn main:app --host 0.0.0.0 --port $PORT 형태로 실행
+    uvicorn.run("main:app", host="0.0.0.0", port=port) 

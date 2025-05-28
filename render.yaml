@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ProjectR_backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://stocks_data_user:ajYjFBpJtMieMVgEBYFj72nNqJ4xl7Z9@dpg-d0rgh93uibrs73d7js40-a.singapore-postgres.render.com/stocks_data 
