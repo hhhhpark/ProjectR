@@ -396,7 +396,7 @@ export default {
   padding: 20px;
   border-radius: 8px;
   width: 90%;
-  max-width: 1200px;
+  max-width: 1600px;
   position: relative;
 }
 

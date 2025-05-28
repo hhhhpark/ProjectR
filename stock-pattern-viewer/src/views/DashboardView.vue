@@ -541,7 +541,13 @@ const loadStockDetailData = async () => {
     }
   } catch (error) {
     console.error('종목 상세 데이터 로딩 실패:', error)
-    alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message)
+    if (error instanceof Error) {
+      console.error(error.message); // ✅ 안전하게 타입 확인 후 사용
+      alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message)
+    } else {
+      console.error("Unknown error", error);
+      alert('데이터를 불러오는 중 알 수 없는 오류가 발생했습니다.')
+    }
   } finally {
     isLoadingStockDetail.value = false
     console.log('로딩 상태 해제')
@@ -995,7 +1001,13 @@ const loadSuspectDetailData = async () => {
     }
   } catch (error) {
     console.error('의심 종목 상세 데이터 로딩 실패:', error)
-    alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message)
+    if (error instanceof Error) {
+      console.error(error.message); // ✅ 안전하게 타입 확인 후 사용
+      alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message)
+    } else {
+      console.error("Unknown error", error);
+      alert('데이터를 불러오는 중 알 수 없는 오류가 발생했습니다.')
+    }
   } finally {
     isLoadingSuspectDetail.value = false
   }
@@ -1153,7 +1165,7 @@ onMounted(async () => {
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
