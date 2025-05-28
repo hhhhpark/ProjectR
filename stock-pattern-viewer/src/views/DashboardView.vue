@@ -75,16 +75,7 @@
           <h2>⚠️ 이상 거래 종목 ({{ anomalousStocks.length }}개)</h2>
           <button @click="showAnomalousData = false" class="close-btn">✕</button>
         </div>
-        <div class="stock-list">
-          <div 
-            v-for="(stock, index) in anomalousStocks" 
-            :key="index" 
-            class="stock-item clickable"
-            @click="openStockDetail(stock)"
-          >
-            {{ stock.stock_name }}({{ stock.stock_code }})
-          </div>
-        </div>
+        <AnomalousStockTable />
       </div>
 
       <!-- 의심 종목 테이블 -->
@@ -374,6 +365,8 @@ import { ref, onMounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { CandlestickController, CandlestickElement, OhlcController, OhlcElement } from 'chartjs-chart-financial'
 import 'chartjs-adapter-date-fns'
+import { useRouter } from 'vue-router'
+import AnomalousStockTable from '@/components/AnomalousStockTable.vue'
 
 Chart.register(...registerables, CandlestickController, CandlestickElement, OhlcController, OhlcElement)
 
