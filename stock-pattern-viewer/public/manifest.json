@@ -1,0 +1,10 @@
+{
+  "name": "K-Stock Pattern Insight",
+  "short_name": "StockPattern",
+  "description": "한국 주식 패턴 분석 도구",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary"
+} 
